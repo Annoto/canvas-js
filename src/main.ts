@@ -15,15 +15,9 @@ let log: Pick<Console, 'log' | 'info' | 'warn' | 'error'> = {
     log: () => {
         /* empty */
     },
-    info: () => {
-        /* empty */
-    },
-    warn: () => {
-        /* empty */
-    },
-    error: () => {
-        /* empty */
-    },
+    info: console.info, // eslint-disable-line no-console
+    warn: console.warn, // eslint-disable-line no-console
+    error: console.error, // eslint-disable-line no-console
 };
 try {
     if (window.sessionStorage.getItem('canvasAnnotoDebug')) {
