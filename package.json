@@ -1,0 +1,64 @@
+{
+  "name": "@annoto/canvas-js",
+  "version": "0.0.1",
+  "description": "Annoto Canvas Javascripts",
+  "license": "Apache-2.0",
+  "author": "Genadi Sokolov [genadi@annoto.net]",
+  "main": "dist/annoto.js",
+  "engines": {
+    "node": ">=22.0",
+    "npm": ">=10.0"
+  },
+  "private": true,
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "scripts": {
+    "prebuild": "npm run lint",
+    "build": "webpack --env envName=prod --progress",
+    "build:version": "webpack --env envName=prod --env version",
+    "dev": "webpack serve --env envName=dev",
+    "dev:proxy": "webpack serve --env envName=dev --env proxy",
+    "watch": "webpack --progress --color --watch --env envName=dev",
+    "lint": "eslint \"src/**/*.ts\" --color",
+    "prettier:fix": "prettier --write ."
+  },
+  "dependencies": {
+    "@annoto/widget-api": "^3.39.0"
+  },
+  "devDependencies": {
+    "@types/webpack": "^5.28.5",
+    "@types/node": "^22.5.4",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.56.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-only-warn": "^1.1.0",
+    "eslint-plugin-sort-class-members": "^1.20.0",
+    "eslint-webpack-plugin": "^4.2.0",
+    "prettier": "^3.3.3",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.5.4",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.1.0",
+    "webpack-merge": "^6.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Annoto/canvas-js.git"
+  },
+  "keywords": [
+    "annoto",
+    "canvas",
+    "js"
+  ],
+  "lint-staged": {
+    "*.ts": [
+      "prettier --write",
+      "git add"
+    ]
+  }
+}
