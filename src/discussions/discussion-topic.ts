@@ -1,3 +1,4 @@
+import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
 
 export class DiscussionTopicHandler {
@@ -7,7 +8,7 @@ export class DiscussionTopicHandler {
     private observer: MutationObserver | undefined;
     private threadInitSubscriptionDone: Record<string, boolean> = {};
 
-    constructor(private log: Pick<Console, 'log' | 'info' | 'warn' | 'error'>) {
+    constructor(private log: Log) {
         /* empty */
     }
 
@@ -55,14 +56,15 @@ export class DiscussionTopicHandler {
 
     private handleDiscussionHolderMutations(): void {
         const iframes = document.querySelectorAll('iframe');
-        iframes.forEach((iframe, key) => this.iframeHandler(iframe, key));
+        iframes.forEach((iframe, key) => {
+            if (!iframe.src.includes('external_tools')) {
+                return;
+            }
+            this.iframeHandler(iframe, key);
+        });
     }
 
     private iframeHandler(iframe: HTMLIFrameElement, key: number): void {
-        if (!iframe.src.includes('external_tools')) {
-            return;
-        }
-
         const subscriptionId = `thread_init_subscription_discussion_topic_${key}`;
 
         window.addEventListener(
@@ -93,7 +95,7 @@ export class DiscussionTopicHandler {
                                 data: {
                                     value: 'video_tag',
                                     data: {
-                                        ...parsedData.data.eventData as IThreadInitEvent,
+                                        ...(parsedData.data.eventData as IThreadInitEvent),
                                         value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
                                         label: this.label,
                                     },
@@ -112,10 +114,7 @@ export class DiscussionTopicHandler {
         this.subscribeToThreadInit(iframe, subscriptionId);
     }
 
-    private subscribeToThreadInit(
-        iframe: HTMLIFrameElement,
-        subscriptionId: string,
-    ): void {
+    private subscribeToThreadInit(iframe: HTMLIFrameElement, subscriptionId: string): void {
         if (this.threadInitSubscriptionDone[subscriptionId]) {
             return;
         }

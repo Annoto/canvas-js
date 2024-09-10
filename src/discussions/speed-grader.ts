@@ -1,3 +1,4 @@
+import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
 
 const USER_CONTENT_LOADED_INTERVAL = 200;
@@ -8,7 +9,7 @@ export class SpeedGraderHandler {
     private observer: MutationObserver | undefined;
     private threadInitSubscriptionDone: Record<string, boolean> = {};
 
-    constructor(private log: Pick<Console, 'log' | 'info' | 'warn' | 'error'>) {
+    constructor(private log: Log) {
         /* empty */
     }
 
@@ -95,9 +96,12 @@ export class SpeedGraderHandler {
         const topicNumber = matches[2];
 
         const iframes = dom.querySelectorAll('iframe');
-        iframes.forEach((iframe, key) =>
-            this.iframeHandler(iframe as HTMLIFrameElement, key, courseNumber, topicNumber)
-        );
+        iframes.forEach((iframe, key) => {
+            if (!iframe.src.includes('external_tools')) {
+                return;
+            }
+            this.iframeHandler(iframe as HTMLIFrameElement, key, courseNumber, topicNumber);
+        });
     }
 
     private iframeHandler(
@@ -106,10 +110,6 @@ export class SpeedGraderHandler {
         courseNumber: string,
         topicNumber: string
     ): void {
-        if (!iframe.src.includes('external_tools')) {
-            return;
-        }
-
         const subscriptionId = `thread_init_subscription_speed_grader_${key}`;
 
         window.addEventListener(
@@ -138,7 +138,7 @@ export class SpeedGraderHandler {
                                 data: {
                                     value: 'group_comments_query',
                                     data: {
-                                        ...parsedData.data.eventData as IThreadInitEvent,
+                                        ...(parsedData.data.eventData as IThreadInitEvent),
                                         tag_value: `canvas_discussion_${courseNumber}_${topicNumber}`,
                                         user_id: this.studentId,
                                     },
@@ -157,10 +157,7 @@ export class SpeedGraderHandler {
         this.subscribeToThreadInit(iframe, subscriptionId);
     }
 
-    private subscribeToThreadInit(
-        iframe: HTMLIFrameElement,
-        subscriptionId: string
-    ): void {
+    private subscribeToThreadInit(iframe: HTMLIFrameElement, subscriptionId: string): void {
         if (this.threadInitSubscriptionDone[subscriptionId]) {
             return;
         }
