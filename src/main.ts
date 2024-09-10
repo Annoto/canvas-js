@@ -1,11 +1,5 @@
-import {
-    IAnnotoApi,
-    IConfig,
-    IFrameMessage,
-    IFrameResponse,
-} from '@annoto/widget-api';
 import { BUILD_ENV } from './constants';
-
+import { DiscussionTopicHandler, SpeedGraderHandler } from './discussions';
 
 export const VERSION = BUILD_ENV.version;
 export const NAME = BUILD_ENV.name;
@@ -31,14 +25,20 @@ class AnnotoCanvas {
     isSetup = false;
 
     setup(): void {
+        const discussionTopicHandler = new DiscussionTopicHandler(log);
+        const speedGraderHandler = new SpeedGraderHandler(log);
         if (this.isSetup) {
             log.warn('AnnotoCanvas: already setup');
             return;
         }
+
+        window.addEventListener('load', () => {
+            discussionTopicHandler.init();
+            speedGraderHandler.init();
+        });
+
         log.info('AnnotoCanvas: setup');
         this.isSetup = true;
-
-        // TODO
     }
 }
 
