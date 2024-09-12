@@ -1,5 +1,6 @@
 import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
+import { isAnnotoRelatedLti } from '.';
 
 export class DiscussionTopicHandler {
     private courseNumber: string | undefined;
@@ -60,7 +61,23 @@ export class DiscussionTopicHandler {
             if (!iframe.src.includes('external_tools')) {
                 return;
             }
-            this.iframeHandler(iframe, key);
+            fetch(iframe.src, { method: 'GET' })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then((data) => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data, 'text/html');
+                    if (isAnnotoRelatedLti(doc)) {
+                        this.iframeHandler(iframe, key);
+                    }
+                })
+                .catch((error) =>
+                    this.log.error('There was a problem with the fetch operation:', error)
+                );
         });
     }
 
@@ -70,8 +87,16 @@ export class DiscussionTopicHandler {
         window.addEventListener(
             'message',
             (ev: MessageEvent) => {
+                let parsedData: IFrameResponse | null = null;
                 try {
-                    const parsedData: IFrameResponse = JSON.parse(ev.data);
+                    parsedData = JSON.parse(ev.data);
+                } catch (e) {
+                    /* empty */
+                }
+                if (!parsedData) {
+                    return;
+                }
+                try {
                     if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
                         return;
                     }

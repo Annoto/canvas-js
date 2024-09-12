@@ -1,5 +1,6 @@
 import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
+import { isAnnotoRelatedLti } from '.';
 
 const USER_CONTENT_LOADED_INTERVAL = 200;
 const MAX_ATTEMPTS = 900;
@@ -100,7 +101,28 @@ export class SpeedGraderHandler {
             if (!iframe.src.includes('external_tools')) {
                 return;
             }
-            this.iframeHandler(iframe as HTMLIFrameElement, key, courseNumber, topicNumber);
+            fetch(iframe.src, { method: 'GET' })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then((data) => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data, 'text/html');
+                    if (isAnnotoRelatedLti(doc)) {
+                        this.iframeHandler(
+                            iframe as HTMLIFrameElement,
+                            key,
+                            courseNumber,
+                            topicNumber
+                        );
+                    }
+                })
+                .catch((error) =>
+                    this.log.error('There was a problem with the fetch operation:', error)
+                );
         });
     }
 
@@ -116,7 +138,15 @@ export class SpeedGraderHandler {
             'message',
             (ev: MessageEvent) => {
                 try {
-                    const parsedData: IFrameResponse = JSON.parse(ev.data);
+                    let parsedData: IFrameResponse | null = null;
+                    try {
+                        parsedData = JSON.parse(ev.data);
+                    } catch (e) {
+                        /* empty */
+                    }
+                    if (!parsedData) {
+                        return;
+                    }
                     if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
                         return;
                     }
