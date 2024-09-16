@@ -34,7 +34,7 @@ class AnnotoCanvas {
         }
         log.info('AnnotoCanvas: setup');
 
-        const initializeHandlers = () => {
+        const initializeHandlers = (): void => {
             log.info('AnnotoCanvas: load');
             discussionTopicHandler.init();
             speedGraderHandler.init();

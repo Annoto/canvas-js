@@ -116,11 +116,11 @@ export class DiscussionTopicHandler {
                             const msg: IFrameMessage = {
                                 aud: 'annoto_widget',
                                 id: `video_tag_set_${key}`,
-                                action: 'set',
+                                action: 'widget_set_cmd',
                                 data: {
-                                    value: 'video_tag',
+                                    action: 'thread_tag',
+                                    ...(parsedData.data.eventData as IThreadInitEvent),
                                     data: {
-                                        ...(parsedData.data.eventData as IThreadInitEvent),
                                         value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
                                         label: this.label,
                                     },

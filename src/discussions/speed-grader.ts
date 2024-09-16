@@ -164,13 +164,13 @@ export class SpeedGraderHandler {
                             const msg: IFrameMessage = {
                                 aud: 'annoto_widget',
                                 id: `set_group_comment_query_${key}`,
-                                action: 'set',
+                                action: 'widget_set_cmd',
                                 data: {
-                                    value: 'group_comments_query',
+                                    action: 'group_comments_query',
+                                    ...(parsedData.data.eventData as IThreadInitEvent),
                                     data: {
-                                        ...(parsedData.data.eventData as IThreadInitEvent),
-                                        tag_value: `canvas_discussion_${courseNumber}_${topicNumber}`,
-                                        user_id: this.studentId,
+                                        threads_tag_value: `canvas_discussion_${courseNumber}_${topicNumber}`,
+                                        sso_id: this.studentId,
                                     },
                                 },
                             };
