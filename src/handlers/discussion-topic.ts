@@ -1,6 +1,6 @@
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
-import { isAnnotoRelatedLti } from '../util';
+import { isAnnotoRelatedIframe } from '../util';
 
 export class DiscussionTopicHandler {
     private courseNumber: string | undefined;
@@ -58,26 +58,11 @@ export class DiscussionTopicHandler {
     private handleDiscussionHolderMutations(): void {
         const iframes = document.querySelectorAll('iframe');
         iframes.forEach((iframe, key) => {
-            if (!iframe.src.includes('external_tools')) {
-                return;
-            }
-            fetch(iframe.src, { method: 'GET' })
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text();
-                })
-                .then((data) => {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data, 'text/html');
-                    if (isAnnotoRelatedLti(doc)) {
-                        this.iframeHandler(iframe, key);
-                    }
-                })
-                .catch((error) =>
-                    this.log.error('There was a problem with the fetch operation:', error)
-                );
+            isAnnotoRelatedIframe(iframe, this.log).then((isRelated) => {
+                if (isRelated) {
+                    this.iframeHandler(iframe, key);
+                }
+            });
         });
     }
 
