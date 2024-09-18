@@ -16,25 +16,20 @@ export const delay = (ms: number): Promise<void> =>
     });
 
 const isAnnotoRelatedDoc = (doc: Document): boolean => {
-    // Direct LTI
-    const wrapperDiv = doc.querySelector('.tool_content_wrapper');
-    const formElement = wrapperDiv?.querySelector('form');
-    if (formElement) {
-        const actionRegExp = /annoto.*lti\/login/;
-
-        if (actionRegExp.test(formElement.action)) {
-            return true;
-        }
-    }
-    // Kaltura LTI
     const inputElement: HTMLInputElement | null = doc.querySelector('#target_link_uri');
-    if (inputElement) {
-        const valueRegExp = /browseandembed/;
-
-        if (valueRegExp.test(inputElement.value)) {
-            return true;
-        }
+    if (!inputElement) {
+        return false;
     }
+
+    const ltiValueRegExp = /annoto.*lti\/embed\/launch/;
+    if (ltiValueRegExp.test(inputElement.value)) {
+        return true;
+    }
+    const kalturaValueRegExp = /browseandembed\/index\/media\/entryid/;
+    if (kalturaValueRegExp.test(inputElement.value)) {
+        return true;
+    }
+
     return false;
 };
 
