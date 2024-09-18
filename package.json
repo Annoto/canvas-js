@@ -24,7 +24,7 @@
     "prettier:fix": "prettier --write ."
   },
   "dependencies": {
-    "@annoto/widget-api": "^3.39.0"
+    "@annoto/widget-api": "^3.46.0-alpha.0"
   },
   "devDependencies": {
     "@types/webpack": "^5.28.5",
