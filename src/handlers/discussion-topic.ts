@@ -1,18 +1,12 @@
-import {
-    IFrameMessage,
-    IFrameMessageWidgetSetCmd,
-    IFrameResponse,
-    IThreadInitEvent,
-} from '@annoto/widget-api';
+import { IFrameMessage, IFrameMessageWidgetSetCmd } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
-import { getCanvasResourceUUID, isAnnotoRelatedIframe } from '../util';
+import { annotoIframeHandle, getCanvasResourceUUID, isAnnotoRelatedIframe } from '../util';
 
 export class DiscussionTopicHandler {
     private courseNumber: string | undefined;
     private topicNumber: string | undefined;
     private label: string | undefined;
     private observer: MutationObserver | undefined;
-    private threadInitSubscriptionDone: Record<string, boolean> = {};
     private managedIframes = new Set<string>();
 
     constructor(private log: ILog) {
@@ -80,85 +74,36 @@ export class DiscussionTopicHandler {
     }
 
     private iframeHandle(iframe: HTMLIFrameElement, key: string): void {
-        this.log.info(`AnnotoCanvas: handling resource ${key}:`, iframe.src);
         const subscriptionId = `discussion_topic_thread_init_${key}`;
 
-        window.addEventListener(
-            'message',
-            (ev: MessageEvent) => {
-                let parsedData: IFrameResponse | null = null;
-                try {
-                    parsedData = JSON.parse(ev.data);
-                } catch (e) {
-                    /* empty */
-                }
-                if (!parsedData) {
-                    return;
-                }
-                try {
-                    if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
-                        return;
-                    }
-                    if (parsedData.err) {
-                        this.log.warn(
-                            `AnnotoCanvas: error received from tool ${key}:`,
-                            parsedData.err
-                        );
-                        return;
-                    }
-
-                    if (parsedData.type === 'subscribe') {
-                        this.threadInitSubscriptionDone[subscriptionId] = true;
-                        this.log.log(`AnnotoCanvas: subscribed to thread init for iframe ${key}`);
-                        return;
-                    }
-                    if (parsedData.type === 'event' && parsedData.data) {
-                        this.log.log(
-                            `AnnotoCanvas: event received for tool ${key}:`,
-                            parsedData.data
-                        );
-                        if (parsedData.data.eventName === 'thread_init') {
-                            const tagMsg: IFrameMessageWidgetSetCmd<'thread_tag'> = {
-                                action: 'thread_tag',
-                                widget_index: (parsedData.data.eventData as IThreadInitEvent)
-                                    .widget_index,
-                                data: {
-                                    value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
-                                    label: this.label,
-                                },
-                            };
-                            const msg: IFrameMessage<'widget_set_cmd'> = {
-                                aud: 'annoto_widget',
-                                id: `discussion_topic_tag_set_${key}`,
-                                action: 'widget_set_cmd',
-                                data: tagMsg,
-                            };
-                            iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
-                        }
-                    }
-                } catch (e) {
-                    this.log.error('Error handling message event:', e);
-                }
+        annotoIframeHandle({
+            iframe,
+            key,
+            log: this.log,
+            subscriptionId,
+            onSubscribe: () => {
+                /* empty */
             },
-            false
-        );
-
-        this.subscribeToThreadInit(iframe, subscriptionId);
-    }
-
-    private subscribeToThreadInit(iframe: HTMLIFrameElement, subscriptionId: string): void {
-        if (this.threadInitSubscriptionDone[subscriptionId]) {
-            return;
-        }
-
-        const msg: IFrameMessage = {
-            aud: 'annoto_widget',
-            id: subscriptionId,
-            action: 'subscribe',
-            data: 'thread_init',
-        };
-
-        iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
-        setTimeout(() => this.subscribeToThreadInit(iframe, subscriptionId), 200);
+            onThreadInit: (ev) => {
+                const tagMsg: IFrameMessageWidgetSetCmd<'thread_tag'> = {
+                    action: 'thread_tag',
+                    widget_index: ev.widget_index,
+                    data: {
+                        value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
+                        label: this.label,
+                    },
+                };
+                const msg: IFrameMessage<'widget_set_cmd'> = {
+                    aud: 'annoto_widget',
+                    id: `discussion_topic_tag_set_${key}`,
+                    action: 'widget_set_cmd',
+                    data: tagMsg,
+                };
+                iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+            },
+            onEvent: () => {
+                /* empty */
+            },
+        });
     }
 }

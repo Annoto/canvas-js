@@ -1,3 +1,4 @@
+import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
 import { ILog } from './interfaces';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,7 +23,7 @@ const isAnnotoRelatedDoc = (doc: Document, log: ILog): boolean => {
     }
 
     log.log('AnnotoCanvas: evaluating:', inputElement.value);
-    
+
     const ltiValueRegExp = /annoto.*lti\/embed\/launch/;
     if (ltiValueRegExp.test(inputElement.value)) {
         return true;
@@ -70,4 +71,89 @@ export const getCanvasResourceUUID = (el: HTMLIFrameElement): string | null => {
     } catch (err) {
         return null;
     }
+};
+
+export const annotoIframeHandle = ({
+    iframe,
+    key,
+    log,
+    subscriptionId,
+    onSubscribe,
+    onThreadInit,
+    onEvent,
+    pollInterval = 100,
+}: {
+    iframe: HTMLIFrameElement;
+    key: string;
+    subscriptionId: string;
+    log: ILog;
+    onSubscribe: () => void;
+    onThreadInit: (ev: IThreadInitEvent) => void;
+    onEvent: (data: IFrameResponse<'event'>) => void;
+    /**
+     * @default 100
+     */
+    pollInterval?: number;
+}): void => {
+    log.info(`AnnotoCanvas: handling tool ${key}:`, iframe.src);
+
+    let subscriptionDone = false;
+    window.addEventListener(
+        'message',
+        (ev: MessageEvent) => {
+            let parsedData: IFrameResponse | null = null;
+            try {
+                parsedData = JSON.parse(ev.data);
+            } catch (e) {
+                /* empty */
+            }
+            if (!parsedData) {
+                return;
+            }
+            try {
+                if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
+                    return;
+                }
+                if (parsedData.err) {
+                    log.warn(`AnnotoCanvas: error received from tool ${key}:`, parsedData.err);
+                    return;
+                }
+
+                if (parsedData.type === 'subscribe') {
+                    log.log(`AnnotoCanvas: subscribed to thread init for iframe ${key}`);
+                    subscriptionDone = true;
+                    onSubscribe();
+                    return;
+                }
+                if (parsedData.type === 'event' && parsedData.data) {
+                    log.log(`AnnotoCanvas: event received for tool ${key}:`, parsedData.data);
+                    onEvent(parsedData as IFrameResponse<'event'>);
+                    if (parsedData.data.eventName === 'thread_init') {
+                        onThreadInit(parsedData.data.eventData as IThreadInitEvent);
+                    }
+                }
+            } catch (e) {
+                log.error('Error handling message event:', e);
+            }
+        },
+        false
+    );
+
+    const subscribeToThreadInit = (): void => {
+        if (subscriptionDone) {
+            return;
+        }
+
+        const msg: IFrameMessage = {
+            aud: 'annoto_widget',
+            id: subscriptionId,
+            action: 'subscribe',
+            data: 'thread_init',
+        };
+
+        iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+        setTimeout(subscribeToThreadInit, pollInterval);
+    };
+
+    subscribeToThreadInit();
 };
