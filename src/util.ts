@@ -15,12 +15,14 @@ export const delay = (ms: number): Promise<void> =>
         setTimeout(resolve, ms);
     });
 
-const isAnnotoRelatedDoc = (doc: Document): boolean => {
+const isAnnotoRelatedDoc = (doc: Document, log: ILog): boolean => {
     const inputElement: HTMLInputElement | null = doc.querySelector('#target_link_uri');
     if (!inputElement) {
         return false;
     }
 
+    log.log('AnnotoCanvas: evaluating:', inputElement.value);
+    
     const ltiValueRegExp = /annoto.*lti\/embed\/launch/;
     if (ltiValueRegExp.test(inputElement.value)) {
         return true;
@@ -43,16 +45,29 @@ export const isAnnotoRelatedIframe = async (
         }
         const response = await fetch(iframe.src, { method: 'GET' });
         if (!response.ok) {
-            log.log('AnnotoCanvas - not able to fatch iframe src: ', iframe.src);
+            log.log('AnnotoCanvas: not able to fatch iframe src: ', iframe.src);
             return false;
         }
         const data = await response.text();
 
         const parser = new DOMParser();
         const doc = parser.parseFromString(data, 'text/html');
-        return isAnnotoRelatedDoc(doc);
+        return isAnnotoRelatedDoc(doc, log);
     } catch (err) {
-        log.error('AnnotoCanvas - error:', err);
+        log.error('AnnotoCanvas: error:', err);
         return false;
+    }
+};
+
+export const getCanvasResourceUUID = (el: HTMLIFrameElement): string | null => {
+    try {
+        if (!el.src) {
+            return null;
+        }
+        const url = new URL(el.src);
+        const params = new URLSearchParams(url.search);
+        return params.get('resource_link_lookup_uuid');
+    } catch (err) {
+        return null;
     }
 };

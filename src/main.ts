@@ -32,10 +32,11 @@ class AnnotoCanvas {
             log.warn('AnnotoCanvas: already setup');
             return;
         }
-        log.info('AnnotoCanvas: setup');
+        this.isSetup = true;
+        log.log('AnnotoCanvas: setup');
 
         const initializeHandlers = (): void => {
-            log.info('AnnotoCanvas: init handlers');
+            log.log('AnnotoCanvas: init handlers');
             discussionTopicHandler.init();
             speedGraderHandler.init();
         };
@@ -45,7 +46,6 @@ class AnnotoCanvas {
         } else {
             window.addEventListener('load', initializeHandlers);
         }
-        this.isSetup = true;
     }
 }
 

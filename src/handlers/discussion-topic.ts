@@ -1,6 +1,6 @@
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
-import { isAnnotoRelatedIframe } from '../util';
+import { getCanvasResourceUUID, isAnnotoRelatedIframe } from '../util';
 
 export class DiscussionTopicHandler {
     private courseNumber: string | undefined;
@@ -8,65 +8,74 @@ export class DiscussionTopicHandler {
     private label: string | undefined;
     private observer: MutationObserver | undefined;
     private threadInitSubscriptionDone: Record<string, boolean> = {};
+    private managedIframes = new Set<string>();
 
     constructor(private log: ILog) {
         /* empty */
     }
 
     init(): void {
-        this.setCourseAndTopicNumbers();
-        if (!this.courseNumber || !this.topicNumber) {
-            return;
-        }
-
-        this.setLabel();
-        const discussionHolder = document.getElementById('discussion_subentries');
+        const discussionHolder = this.detect();
         if (!discussionHolder) {
+            this.log.log('AnnotoCanvas: Discussion topic not found');
             return;
         }
+        this.log.info('AnnotoCanvas: Discussion topic detected');
 
-        this.observer = new MutationObserver(() => this.handleDiscussionHolderMutations());
+        this.observer = new MutationObserver(() => this.mutationsHandle());
         this.observer.observe(discussionHolder, {
             attributes: true,
             childList: true,
-            subtree: false,
+            subtree: true,
         });
+        this.mutationsHandle();
     }
 
-    private setCourseAndTopicNumbers(): void {
+    private detect(): HTMLElement | null {
         const currentLocation = window.location.href;
         const regex = /courses\/(\d+)\/discussion_topics\/(\d+)/;
         const matches = currentLocation.match(regex);
 
         if (matches) {
             [this.courseNumber, this.topicNumber] = [matches[1], matches[2]];
-            this.log.info(`Course number: ${this.courseNumber}, Topic number: ${this.topicNumber}`);
         }
-    }
 
-    private setLabel(): void {
         this.label = document.querySelector<HTMLElement>(
-            'header.discussion-section .discussion-title'
+            '#discussion_topic .discussion-header-content .discussion-title'
         )?.innerText;
-        if (this.label) {
-            this.log.info(`Discussion label: ${this.label}`);
-        } else {
-            this.log.info('Discussion label not found');
+
+        if (!this.courseNumber || !this.topicNumber || !this.label) {
+            return null;
         }
+
+        this.log.log(
+            `AnnotoCanvas: Course number: ${this.courseNumber}, Topic number: ${this.topicNumber}, Label: ${this.label}`
+        );
+
+        return document.getElementById('discussion_subentries');
     }
 
-    private handleDiscussionHolderMutations(): void {
+    private mutationsHandle(): void {
         const iframes = document.querySelectorAll('iframe');
-        iframes.forEach((iframe, key) => {
+        iframes.forEach((iframe) => {
+            const key = getCanvasResourceUUID(iframe);
+            if (!key) {
+                return;
+            }
+            if (this.managedIframes.has(key)) {
+                return;
+            }
+            this.managedIframes.add(key);
             isAnnotoRelatedIframe(iframe, this.log).then((isRelated) => {
                 if (isRelated) {
-                    this.iframeHandler(iframe, key);
+                    this.iframeHandle(iframe, key);
                 }
             });
         });
     }
 
-    private iframeHandler(iframe: HTMLIFrameElement, key: number): void {
+    private iframeHandle(iframe: HTMLIFrameElement, key: string): void {
+        this.log.info(`AnnotoCanvas: handling resource ${key}:`, iframe.src);
         const subscriptionId = `thread_init_subscription_discussion_topic_${key}`;
 
         window.addEventListener(
