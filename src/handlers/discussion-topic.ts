@@ -1,4 +1,9 @@
-import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
+import {
+    IFrameMessage,
+    IFrameMessageWidgetSetCmd,
+    IFrameResponse,
+    IThreadInitEvent,
+} from '@annoto/widget-api';
 import { ILog } from '../interfaces';
 import { getCanvasResourceUUID, isAnnotoRelatedIframe } from '../util';
 
@@ -76,7 +81,7 @@ export class DiscussionTopicHandler {
 
     private iframeHandle(iframe: HTMLIFrameElement, key: string): void {
         this.log.info(`AnnotoCanvas: handling resource ${key}:`, iframe.src);
-        const subscriptionId = `thread_init_subscription_discussion_topic_${key}`;
+        const subscriptionId = `discussion_topic_thread_init_${key}`;
 
         window.addEventListener(
             'message',
@@ -95,30 +100,38 @@ export class DiscussionTopicHandler {
                         return;
                     }
                     if (parsedData.err) {
-                        this.log.error(`Error received from iframe ${key}:`, parsedData.err);
+                        this.log.warn(
+                            `AnnotoCanvas: error received from tool ${key}:`,
+                            parsedData.err
+                        );
                         return;
                     }
 
                     if (parsedData.type === 'subscribe') {
                         this.threadInitSubscriptionDone[subscriptionId] = true;
-                        this.log.info(`Subscription done for iframe ${key}`);
+                        this.log.log(`AnnotoCanvas: subscribed to thread init for iframe ${key}`);
                         return;
                     }
                     if (parsedData.type === 'event' && parsedData.data) {
-                        this.log.info(`Event received for iframe ${key}:`, parsedData.data);
+                        this.log.log(
+                            `AnnotoCanvas: event received for tool ${key}:`,
+                            parsedData.data
+                        );
                         if (parsedData.data.eventName === 'thread_init') {
-                            const msg: IFrameMessage = {
-                                aud: 'annoto_widget',
-                                id: `video_tag_set_${key}`,
-                                action: 'widget_set_cmd',
+                            const tagMsg: IFrameMessageWidgetSetCmd<'thread_tag'> = {
+                                action: 'thread_tag',
+                                widget_index: (parsedData.data.eventData as IThreadInitEvent)
+                                    .widget_index,
                                 data: {
-                                    action: 'thread_tag',
-                                    ...(parsedData.data.eventData as IThreadInitEvent),
-                                    data: {
-                                        value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
-                                        label: this.label,
-                                    },
+                                    value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
+                                    label: this.label,
                                 },
+                            };
+                            const msg: IFrameMessage<'widget_set_cmd'> = {
+                                aud: 'annoto_widget',
+                                id: `discussion_topic_tag_set_${key}`,
+                                action: 'widget_set_cmd',
+                                data: tagMsg,
                             };
                             iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
                         }
