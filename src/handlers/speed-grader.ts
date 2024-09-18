@@ -1,6 +1,11 @@
-import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
+import { IFrameMessage, IFrameMessageWidgetSetCmd, IThreadInitEvent } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
-import { isAnnotoRelatedIframe } from '../util';
+import {
+    annotoIframeHandle,
+    formatTagValue,
+    getCanvasResourceUUID,
+    isAnnotoRelatedIframe,
+} from '../util';
 
 const USER_CONTENT_LOADED_INTERVAL = 200;
 const MAX_ATTEMPTS = 900;
@@ -8,7 +13,7 @@ const MAX_ATTEMPTS = 900;
 export class SpeedGraderHandler {
     private studentId: string = '';
     private observer: MutationObserver | undefined;
-    private threadInitSubscriptionDone: Record<string, boolean> = {};
+    private managedIframes = new Set<string>();
 
     constructor(private log: ILog) {
         /* empty */
@@ -19,11 +24,11 @@ export class SpeedGraderHandler {
         if (!this.studentId) {
             return;
         }
-        this.log.info(`Student ID: ${this.studentId}`);
+        this.log.info(`AnnotoCanvas: Student ID: ${this.studentId}`);
 
         const iframeHolder = document.getElementById('iframe_holder');
         if (!iframeHolder) {
-            this.log.info('Iframe holder not found');
+            this.log.info('AnnotoCanvas: Iframe holder not found');
             return;
         }
 
@@ -45,13 +50,13 @@ export class SpeedGraderHandler {
     private handleIframeHolderMutations(): void {
         const iframe = document.getElementById('speedgrader_iframe') as HTMLIFrameElement;
         if (!iframe) {
-            this.log.info('Speedgrader iframe not found');
+            this.log.info('AnnotoCanvas: Speedgrader iframe not found');
             return;
         }
 
         const dom = iframe.contentDocument;
         if (!dom) {
-            this.log.info('Cannot access iframe content document');
+            this.log.info('AnnotoCanvas: Cannot access iframe content document');
             return;
         }
 
@@ -64,7 +69,9 @@ export class SpeedGraderHandler {
             } else {
                 attempt += 1;
                 if (attempt >= MAX_ATTEMPTS) {
-                    this.log.info('Failed to load user content after maximum attempts');
+                    this.log.info(
+                        'AnnotoCanvas: Failed to load user content after maximum attempts'
+                    );
                     clearInterval(userContentLoadInterval);
                 }
             }
@@ -74,14 +81,14 @@ export class SpeedGraderHandler {
     private userContentLoadedHandler(speedgraderIframe: HTMLIFrameElement): void {
         const dom = speedgraderIframe.contentDocument;
         if (!dom) {
-            this.log.info('Cannot access iframe content document');
+            this.log.info('AnnotoCanvas: Cannot access iframe content document');
             return;
         }
         const discussionLinkElement = dom.getElementById(
             'discussion_view_link'
         ) as HTMLAnchorElement;
         if (!discussionLinkElement) {
-            this.log.info('Discussion link not found');
+            this.log.info('AnnotoCanvas: Discussion link not found');
             return;
         }
 
@@ -89,7 +96,7 @@ export class SpeedGraderHandler {
         const regex = /courses\/(\d+)\/discussion_topics\/(\d+)/;
         const matches = discussionTopicLink.match(regex);
         if (!matches) {
-            this.log.info('Discussion topic details not found');
+            this.log.info('AnnotoCanvas: Discussion topic details not found');
             return;
         }
 
@@ -97,7 +104,15 @@ export class SpeedGraderHandler {
         const topicNumber = matches[2];
 
         const iframes = dom.querySelectorAll('iframe');
-        iframes.forEach((iframe, key) => {
+        iframes.forEach((iframe) => {
+            const key = getCanvasResourceUUID(iframe);
+            if (!key) {
+                return;
+            }
+            if (this.managedIframes.has(key)) {
+                return;
+            }
+            this.managedIframes.add(key);
             isAnnotoRelatedIframe(iframe, this.log).then((isRelated) => {
                 if (isRelated) {
                     this.iframeHandler(iframe, key, courseNumber, topicNumber);
@@ -108,78 +123,40 @@ export class SpeedGraderHandler {
 
     private iframeHandler(
         iframe: HTMLIFrameElement,
-        key: number,
+        key: string,
         courseNumber: string,
         topicNumber: string
     ): void {
-        const subscriptionId = `thread_init_subscription_speed_grader_${key}`;
+        const subscriptionId = `speed_grader_thread_init_${key}`;
 
-        window.addEventListener(
-            'message',
-            (ev: MessageEvent) => {
-                try {
-                    let parsedData: IFrameResponse | null = null;
-                    try {
-                        parsedData = JSON.parse(ev.data);
-                    } catch (e) {
-                        /* empty */
-                    }
-                    if (!parsedData) {
-                        return;
-                    }
-                    if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
-                        return;
-                    }
-                    if (parsedData.err) {
-                        this.log.error(`Error received from iframe ${key}:`, parsedData.err);
-                        return;
-                    }
-
-                    if (parsedData.type === 'subscribe') {
-                        this.threadInitSubscriptionDone[subscriptionId] = true;
-                        this.log.info(`Subscription done for iframe ${key}`);
-                    } else if (parsedData.type === 'event' && parsedData.data) {
-                        this.log.info(`Event received for iframe ${key}:`, parsedData.data);
-                        if (parsedData.data.eventName === 'thread_init') {
-                            const msg: IFrameMessage = {
-                                aud: 'annoto_widget',
-                                id: `set_group_comment_query_${key}`,
-                                action: 'widget_set_cmd',
-                                data: {
-                                    action: 'group_comments_query',
-                                    ...(parsedData.data.eventData as IThreadInitEvent),
-                                    data: {
-                                        threads_tag_value: `canvas_discussion_${courseNumber}_${topicNumber}`,
-                                        sso_id: this.studentId,
-                                    },
-                                },
-                            };
-                            iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
-                        }
-                    }
-                } catch (e) {
-                    this.log.error('Error handling message event:', e);
-                }
+        annotoIframeHandle({
+            iframe,
+            key,
+            log: this.log,
+            subscriptionId,
+            onSubscribe: () => {
+                /* empty */
             },
-            false
-        );
-
-        this.subscribeToThreadInit(iframe, subscriptionId);
-    }
-
-    private subscribeToThreadInit(iframe: HTMLIFrameElement, subscriptionId: string): void {
-        if (this.threadInitSubscriptionDone[subscriptionId]) {
-            return;
-        }
-
-        const msg: IFrameMessage = {
-            aud: 'annoto_widget',
-            id: subscriptionId,
-            action: 'subscribe',
-            data: 'thread_init',
-        };
-
-        iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
-        setTimeout(() => this.subscribeToThreadInit(iframe, subscriptionId), 200);
+            onThreadInit: (ev: IThreadInitEvent) => {
+                const msgData: IFrameMessageWidgetSetCmd<'group_comments_query'> = {
+                    action: 'group_comments_query',
+                    widget_index: ev.widget_index,
+                    data: {
+                        sso_id: this.studentId,
+                        threads_tag_value: formatTagValue({ courseNumber, topicNumber }),
+                    },
+                };
+                const msg: IFrameMessage<'widget_set_cmd'> = {
+                    aud: 'annoto_widget',
+                    id: `set_group_comment_query_${key}`,
+                    action: 'widget_set_cmd',
+                    data: msgData,
+                };
+                iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+            },
+            onEvent: () => {
+                /* empty */
+            },
+        });
     }
 }

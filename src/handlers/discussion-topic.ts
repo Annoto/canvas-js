@@ -1,10 +1,15 @@
 import { IFrameMessage, IFrameMessageWidgetSetCmd } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
-import { annotoIframeHandle, getCanvasResourceUUID, isAnnotoRelatedIframe } from '../util';
+import {
+    annotoIframeHandle,
+    formatTagValue,
+    getCanvasResourceUUID,
+    isAnnotoRelatedIframe,
+} from '../util';
 
 export class DiscussionTopicHandler {
-    private courseNumber: string | undefined;
-    private topicNumber: string | undefined;
+    private courseNumber!: string;
+    private topicNumber!: string;
     private label: string | undefined;
     private observer: MutationObserver | undefined;
     private managedIframes = new Set<string>();
@@ -75,6 +80,7 @@ export class DiscussionTopicHandler {
 
     private iframeHandle(iframe: HTMLIFrameElement, key: string): void {
         const subscriptionId = `discussion_topic_thread_init_${key}`;
+        const { courseNumber, topicNumber } = this;
 
         annotoIframeHandle({
             iframe,
@@ -89,7 +95,7 @@ export class DiscussionTopicHandler {
                     action: 'thread_tag',
                     widget_index: ev.widget_index,
                     data: {
-                        value: `canvas_discussion_${this.courseNumber}_${this.topicNumber}`,
+                        value: formatTagValue({ courseNumber, topicNumber }),
                         label: this.label,
                     },
                 };

@@ -157,3 +157,11 @@ export const annotoIframeHandle = ({
 
     subscribeToThreadInit();
 };
+
+export const formatTagValue = ({
+    courseNumber,
+    topicNumber,
+}: {
+    courseNumber: string;
+    topicNumber: string;
+}): string => `canvas_discussion_${courseNumber}_${topicNumber}`;
