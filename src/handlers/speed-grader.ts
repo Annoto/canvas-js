@@ -1,6 +1,6 @@
-import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
-import { isAnnotoRelatedLti } from '.';
+import { ILog } from '../interfaces';
+import { isAnnotoRelatedLti } from '../util';
 
 const USER_CONTENT_LOADED_INTERVAL = 200;
 const MAX_ATTEMPTS = 900;
@@ -10,7 +10,7 @@ export class SpeedGraderHandler {
     private observer: MutationObserver | undefined;
     private threadInitSubscriptionDone: Record<string, boolean> = {};
 
-    constructor(private log: Log) {
+    constructor(private log: ILog) {
         /* empty */
     }
 

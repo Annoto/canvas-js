@@ -1,6 +1,6 @@
-import { Log } from 'interfaces';
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
-import { isAnnotoRelatedLti } from '.';
+import { ILog } from '../interfaces';
+import { isAnnotoRelatedLti } from '../util';
 
 export class DiscussionTopicHandler {
     private courseNumber: string | undefined;
@@ -9,7 +9,7 @@ export class DiscussionTopicHandler {
     private observer: MutationObserver | undefined;
     private threadInitSubscriptionDone: Record<string, boolean> = {};
 
-    constructor(private log: Log) {
+    constructor(private log: ILog) {
         /* empty */
     }
 
