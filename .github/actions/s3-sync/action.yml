@@ -1,0 +1,85 @@
+name: 'Sync to S3 Bucket'
+inputs:
+    src_dir:
+        description: 'Source directory to sync'
+        required: true
+        type: string
+    s3_path:
+        description: 'S3 path to sync to (e.g., s3://bucket-name/path)'
+        required: true
+        type: string
+    s3_cache_control:
+        description: 'Cache control header value'
+        required: false
+        type: string
+        default: 'no-cache'
+    s3_region:
+        required: true
+        type: string
+    s3_delete:
+        description: 'Files that exist in the destination but not in the source are deleted during sync.'
+        required: false
+        type: boolean
+        default: false
+    dry_run:
+        description: 'If true, do not actually execute upload, only print debug'
+        required: false
+        type: boolean
+        default: false
+    debug:
+        description: 'If true, print debug output'
+        required: false
+        type: boolean
+        default: false
+runs:
+    using: 'composite'
+    steps:
+        - name: Sync to S3 Bucket
+          shell: bash
+          run: |
+              set -f # Disable globbing
+
+              cmd=(
+                aws s3 sync
+                "${{ inputs.src_dir }}"
+                "${{ inputs.s3_path }}"
+                --region ${{ inputs.s3_region }}
+                --no-progress
+              )
+
+              if [[ "x${{ inputs.dry_run }}" == "xtrue" ]]; then
+                cmd+=(--dryrun)
+              fi
+              if [[ "x${{ inputs.s3_delete }}" == "xtrue" ]]; then
+                cmd+=(--delete)
+              fi
+              if [[ "x${{ inputs.debug }}" == "xtrue" ]]; then
+                cmd+=(--debug)
+              fi
+
+              cmd+=(--cache-control '${{ inputs.s3_cache_control }}')
+
+              echo "DEBUG ---  ${cmd[@]}"
+              echo "### Sync to S3" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "\`${cmd[@]}\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              SYNC_OUTPUT=$("${cmd[@]}")
+                
+              echo "$SYNC_OUTPUT"
+                
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              echo "<summary>Sync details</summary>" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo "<p>" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$SYNC_OUTPUT" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo "</p>" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+              set +f

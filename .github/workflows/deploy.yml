@@ -9,8 +9,8 @@ jobs:
     vars:
         runs-on: ubuntu-latest
         steps:
-        - name: Set up output variables 
-          run: echo "setup variables"
+            - name: Set up output variables
+              run: echo "setup variables"
         outputs:
             environment: production
             bucket_name: 'cdn.annoto.net'
@@ -25,13 +25,12 @@ jobs:
             build_version_cmd: 'npm run build:version'
             build_latest_cmd: 'npm run build'
             build_artifacts_dir: 'dist'
-            entrypoint: ''
             s3_cache_control: 'public,no-transform,max-age=86400'
             dry_run: 'false'
             s3_delete: 'false'
             debug: 'false'
 
-    build-s3-push:
+    deploy:
         runs-on: ubuntu-latest
         needs: vars
         environment: ${{ needs.vars.outputs.environment }}
@@ -42,18 +41,15 @@ jobs:
             - name: Parse input parameters
               id: input-params
               run: |
-                  UPLOAD_PREFIX="/${{ env.REPO_NAME }}/"
                   UPLOAD_SOURCE_DIR="./${{ needs.vars.outputs.build_artifacts_dir }}"
-                  UPLOAD_DST_DIR="s3://${{ needs.vars.outputs.bucket_name }}${UPLOAD_PREFIX}"
+                  UPLOAD_DST_DIR="s3://${{ needs.vars.outputs.bucket_name }}/${{ env.REPO_NAME }}/"
 
-                  echo "dst_prefix=${UPLOAD_PREFIX}" >> $GITHUB_OUTPUT
                   echo "dst_dir=${UPLOAD_DST_DIR}" >> $GITHUB_OUTPUT
                   echo "src_dir=${UPLOAD_SOURCE_DIR}" >> $GITHUB_OUTPUT
 
                   echo "## Build and Sync to S3" >> $GITHUB_STEP_SUMMARY
                   echo "artifacts directory: \`$UPLOAD_SOURCE_DIR\`" >> $GITHUB_STEP_SUMMARY
                   echo "s3 upload destination: \`$UPLOAD_DST_DIR\`" >> $GITHUB_STEP_SUMMARY
-                  echo 'entrypoint: `${{ needs.vars.outputs.entrypoint || '[null]' }}`' >> $GITHUB_STEP_SUMMARY
                   echo "> dry run: ${{ needs.vars.outputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
 
             - name: Checkout
@@ -98,13 +94,11 @@ jobs:
 
             - name: Upload to S3 version tag
               if: ${{ needs.vars.outputs.build_version_cmd != '' }}
-              uses: Annoto/annoto-ci-cd/.github/actions/s3-sync@main
+              uses: Annoto/canvas-js/.github/actions/s3-sync@main
               with:
-                  cwd_dir: '.'
                   src_dir: ${{ steps.input-params.outputs.src_dir }}
                   s3_path: ${{ steps.input-params.outputs.dst_dir }}${{ env.APP_VERSION }}
                   s3_cache_control: ${{ needs.vars.outputs.s3_cache_control }}
-                  s3_entrypoint: ${{ needs.vars.outputs.entrypoint }}
                   s3_region: ${{ needs.vars.outputs.aws_region }}
                   s3_delete: ${{ needs.vars.outputs.s3_delete == 'true' }}
                   dry_run: ${{ needs.vars.outputs.dry_run == 'true' }}
@@ -128,31 +122,20 @@ jobs:
 
             - name: Upload to S3 latest tag
               if: ${{ needs.vars.outputs.build_latest_cmd != '' }}
-              uses: Annoto/annoto-ci-cd/.github/actions/s3-sync@main
+              uses: Annoto/canvas-js/.github/actions/s3-sync@main
               with:
-                  cwd_dir: '.'
                   src_dir: ${{ steps.input-params.outputs.src_dir }}
                   s3_path: ${{ steps.input-params.outputs.dst_dir }}latest
                   s3_cache_control: ${{ needs.vars.outputs.s3_cache_control }}
-                  s3_entrypoint: ${{ needs.vars.outputs.entrypoint }}
                   s3_region: ${{ needs.vars.outputs.aws_region }}
                   s3_delete: ${{ needs.vars.outputs.s3_delete == 'true' }}
                   dry_run: ${{ needs.vars.outputs.dry_run == 'true' }}
                   debug: ${{ needs.vars.outputs.debug == 'true' }}
 
-    cdn-invalidate:
-        permissions:
-            id-token: write
-            contents: read
-        uses: Annoto/annoto-ci-cd/.github/workflows/cloud-front-invalidate.yml@main
-        needs:
-            - vars
-            - build-s3-push
-        with:
-            environment: ${{ needs.vars.outputs.environment }}
-            aws_role_arn: ${{ needs.vars.outputs.aws_role }}
-            aws_role_region: ${{ needs.vars.outputs.aws_region }}
-            dry_run: ${{ needs.vars.outputs.dry_run == 'true' }}
-            debug: ${{ needs.vars.outputs.debug == 'true' }}
-            paths: ${{ needs.vars.outputs.cloudfront_invalidation_paths }}
-            distribution_id: ${{ needs.vars.outputs.cloudfront_dist_id }}
+            - name: Invalidate CloudFront
+              uses: Annoto/canvas-js/.github/actions/cloud-front-invalidate@main
+              with:
+                  paths: ${{ needs.vars.outputs.cloudfront_invalidation_paths }}
+                  distribution_id: ${{ needs.vars.outputs.cloudfront_dist_id }}
+                  dry_run: ${{ needs.vars.outputs.dry_run == 'true' }}
+                  debug: ${{ needs.vars.outputs.debug == 'true' }}
