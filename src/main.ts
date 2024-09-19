@@ -1,17 +1,12 @@
-import {
-    IAnnotoApi,
-    IConfig,
-    IFrameMessage,
-    IFrameResponse,
-} from '@annoto/widget-api';
+import { ILog } from './interfaces';
 import { BUILD_ENV } from './constants';
-
+import { DiscussionTopicHandler, SpeedGraderHandler } from './handlers';
 
 export const VERSION = BUILD_ENV.version;
 export const NAME = BUILD_ENV.name;
 export const PUBLIC_PATH = BUILD_ENV.publicPath;
 
-let log: Pick<Console, 'log' | 'info' | 'warn' | 'error'> = {
+const log: ILog = {
     log: () => {
         /* empty */
     },
@@ -21,7 +16,7 @@ let log: Pick<Console, 'log' | 'info' | 'warn' | 'error'> = {
 };
 try {
     if (window.sessionStorage.getItem('canvasAnnotoDebug')) {
-        log = console;
+        log.log = console.debug; // eslint-disable-line no-console
     }
 } catch (err) {
     /* empty */
@@ -31,14 +26,26 @@ class AnnotoCanvas {
     isSetup = false;
 
     setup(): void {
+        const discussionTopicHandler = new DiscussionTopicHandler(log);
+        const speedGraderHandler = new SpeedGraderHandler(log);
         if (this.isSetup) {
             log.warn('AnnotoCanvas: already setup');
             return;
         }
-        log.info('AnnotoCanvas: setup');
         this.isSetup = true;
+        log.log('AnnotoCanvas: setup');
 
-        // TODO
+        const initializeHandlers = (): void => {
+            log.log('AnnotoCanvas: init handlers');
+            discussionTopicHandler.init();
+            speedGraderHandler.init();
+        };
+
+        if (document.readyState === 'complete') {
+            initializeHandlers();
+        } else {
+            window.addEventListener('load', initializeHandlers);
+        }
     }
 }
 

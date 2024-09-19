@@ -9,7 +9,7 @@ module.exports = function (env) {
         devtool: 'inline-cheap-module-source-map',
         mode: 'development',
         devServer: {
-            port: 9003,
+            port: 9004,
             allowedHosts: 'all',
             static: {
                 directory: path.join(__dirname, 'dist'),

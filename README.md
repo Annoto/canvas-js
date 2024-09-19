@@ -40,7 +40,7 @@ To start developing run:
 npm run dev
 ```
 
-The bootstrap is served at  http://localhost:9003/annoto-bootstrap.js
+The bootstrap is served at  http://localhost:9004/annoto-bootstrap.js
 
 To start Proxy development run:
 
