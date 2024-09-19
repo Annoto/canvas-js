@@ -24,6 +24,7 @@ runs:
     using: 'composite'
     steps:
         - name: Create CloudFront invalidation
+          shell: bash
           run: |
               # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/invalidation-specifying-objects.html
 
