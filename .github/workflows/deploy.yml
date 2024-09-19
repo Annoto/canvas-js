@@ -8,6 +8,9 @@ env:
 jobs:
     vars:
         runs-on: ubuntu-latest
+        steps:
+        - name: Set up output variables 
+          run: echo "setup variables"
         outputs:
             environment: production
             bucket_name: 'cdn.annoto.net'
