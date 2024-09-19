@@ -6,7 +6,7 @@ export const VERSION = BUILD_ENV.version;
 export const NAME = BUILD_ENV.name;
 export const PUBLIC_PATH = BUILD_ENV.publicPath;
 
-let log: ILog = {
+const log: ILog = {
     log: () => {
         /* empty */
     },
@@ -16,7 +16,7 @@ let log: ILog = {
 };
 try {
     if (window.sessionStorage.getItem('canvasAnnotoDebug')) {
-        log = console;
+        log.log = console.debug; // eslint-disable-line no-console
     }
 } catch (err) {
     /* empty */

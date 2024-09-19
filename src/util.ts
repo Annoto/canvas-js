@@ -1,5 +1,5 @@
 import { IFrameMessage, IFrameResponse, IThreadInitEvent } from '@annoto/widget-api';
-import { ILog } from './interfaces';
+import { IDisposable, ILog } from './interfaces';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const debounce = (func: (...args: any[]) => void, wait = 0): ((...args: any[]) => void) => {
@@ -94,53 +94,52 @@ export const annotoIframeHandle = ({
      * @default 100
      */
     pollInterval?: number;
-}): void => {
-    log.info(`AnnotoCanvas: handling tool ${key}:`, iframe.src);
+}): IDisposable => {
+    log.log(`AnnotoCanvas: handling tool ${key}:`, iframe.src);
 
     let subscriptionDone = false;
-    window.addEventListener(
-        'message',
-        (ev: MessageEvent) => {
-            let parsedData: IFrameResponse | null = null;
-            try {
-                parsedData = JSON.parse(ev.data);
-            } catch (e) {
-                /* empty */
-            }
-            if (!parsedData) {
+    let disposed = false;
+    const messageHandler = (ev: MessageEvent): void => {
+        let parsedData: IFrameResponse | null = null;
+        try {
+            parsedData = JSON.parse(ev.data);
+        } catch (e) {
+            /* empty */
+        }
+        if (!parsedData) {
+            return;
+        }
+        try {
+            if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
                 return;
             }
-            try {
-                if (parsedData.aud !== 'annoto_widget' || parsedData.id !== subscriptionId) {
-                    return;
-                }
-                if (parsedData.err) {
-                    log.warn(`AnnotoCanvas: error received from tool ${key}:`, parsedData.err);
-                    return;
-                }
-
-                if (parsedData.type === 'subscribe') {
-                    log.log(`AnnotoCanvas: subscribed to thread init for iframe ${key}`);
-                    subscriptionDone = true;
-                    onSubscribe();
-                    return;
-                }
-                if (parsedData.type === 'event' && parsedData.data) {
-                    log.log(`AnnotoCanvas: event received for tool ${key}:`, parsedData.data);
-                    onEvent(parsedData as IFrameResponse<'event'>);
-                    if (parsedData.data.eventName === 'thread_init') {
-                        onThreadInit(parsedData.data.eventData as IThreadInitEvent);
-                    }
-                }
-            } catch (e) {
-                log.error('Error handling message event:', e);
+            if (parsedData.err) {
+                log.warn(`AnnotoCanvas: error received from tool ${key}:`, parsedData.err);
+                return;
             }
-        },
-        false
-    );
+
+            if (parsedData.type === 'subscribe') {
+                log.log(`AnnotoCanvas: subscribed to thread init for iframe ${key}`);
+                subscriptionDone = true;
+                onSubscribe();
+                return;
+            }
+            if (parsedData.type === 'event' && parsedData.data) {
+                log.log(`AnnotoCanvas: event received for tool ${key}:`, parsedData.data);
+                onEvent(parsedData as IFrameResponse<'event'>);
+                if (parsedData.data.eventName === 'thread_init') {
+                    onThreadInit(parsedData.data.eventData as IThreadInitEvent);
+                }
+            }
+        } catch (e) {
+            log.error('Error handling message event:', e);
+        }
+    };
+
+    window.addEventListener('message', messageHandler, false);
 
     const subscribeToThreadInit = (): void => {
-        if (subscriptionDone) {
+        if (subscriptionDone || disposed) {
             return;
         }
 
@@ -156,6 +155,12 @@ export const annotoIframeHandle = ({
     };
 
     subscribeToThreadInit();
+    return {
+        dispose: () => {
+            window.removeEventListener('message', messageHandler);
+            disposed = true;
+        },
+    };
 };
 
 export const formatTagValue = ({

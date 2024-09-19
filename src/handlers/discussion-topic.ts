@@ -24,7 +24,7 @@ export class DiscussionTopicHandler {
             this.log.log('AnnotoCanvas: Discussion topic not found');
             return;
         }
-        this.log.info('AnnotoCanvas: Discussion topic detected');
+        this.log.info('AnnotoCanvas: Discussion detected');
 
         this.observer = new MutationObserver(() => this.mutationsHandle());
         this.observer.observe(discussionHolder, {
@@ -81,6 +81,8 @@ export class DiscussionTopicHandler {
     private iframeHandle(iframe: HTMLIFrameElement, key: string): void {
         const subscriptionId = `discussion_topic_thread_init_${key}`;
         const { courseNumber, topicNumber } = this;
+
+        this.log.info(`AnnotoCanvas: Discussion handling tool ${key} for course ${courseNumber}, topic ${topicNumber}`);
 
         annotoIframeHandle({
             iframe,
