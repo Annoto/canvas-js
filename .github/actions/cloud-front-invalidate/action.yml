@@ -22,61 +22,61 @@ inputs:
 
 runs:
     using: 'composite'
-      steps:
+    steps:
         - name: Create CloudFront invalidation
-            run: |
-                # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/invalidation-specifying-objects.html
+          run: |
+              # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/invalidation-specifying-objects.html
 
-                set -f # Disable globbing
+              set -f # Disable globbing
 
+              echo ""
+              echo "## Cloudfront Invalidation" >> $GITHUB_STEP_SUMMARY
+
+              # Remove leading, traling colons from paths
+              clean_paths=$(echo ${{ inputs.paths }} | sed 's/^,//;s/,*$//')
+
+              if [[ "x${clean_paths}" == "x" ]]; then
                 echo ""
-                echo "## Cloudfront Invalidation" >> $GITHUB_STEP_SUMMARY
+                echo "DEBUG --- No paths specified for invalidation"
+                echo "No paths specified for invalidation" >> $GITHUB_STEP_SUMMARY
+                exit 0  
+              fi
 
-                # Remove leading, traling colons from paths
-                clean_paths=$(echo ${{ inputs.paths }} | sed 's/^,//;s/,*$//')
+              # Split paths by comma and add wildcard to each path, replace spaces with url safe %20
+              invalidation_paths=()
+              readarray -td, pathsarr <<<"${clean_paths},"; unset 'pathsarr[-1]'; declare -p pathsarr;
+              for path in "${pathsarr[@]}"; do invalidation_paths+=("$(echo $path | sed 's/ /%20/g')*"); done
 
-                if [[ "x${clean_paths}" == "x" ]]; then
-                  echo ""
-                  echo "DEBUG --- No paths specified for invalidation"
-                  echo "No paths specified for invalidation" >> $GITHUB_STEP_SUMMARY
-                  exit 0  
-                fi
+              cmd=(
+                aws cloudfront create-invalidation
+                --distribution-id ${{ inputs.distribution_id }}
+              )
+              if [[ "x${{ inputs.dry_run }}" == "xtrue" ]]; then
+                cmd+=(--dryrun)
+              fi
+              if [[ "x${{ inputs.debug }}" == "xtrue" ]]; then
+                cmd+=(--debug)
+              fi
+              cmd+=(--paths "${invalidation_paths[@]}")
 
-                # Split paths by comma and add wildcard to each path, replace spaces with url safe %20
-                invalidation_paths=()
-                readarray -td, pathsarr <<<"${clean_paths},"; unset 'pathsarr[-1]'; declare -p pathsarr;
-                for path in "${pathsarr[@]}"; do invalidation_paths+=("$(echo $path | sed 's/ /%20/g')*"); done
+              echo "DEBUG ---  ${cmd[@]}"
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "\`${cmd[@]}\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
 
-                cmd=(
-                  aws cloudfront create-invalidation
-                  --distribution-id ${{ inputs.distribution_id }}
-                )
-                if [[ "x${{ inputs.dry_run }}" == "xtrue" ]]; then
-                  cmd+=(--dryrun)
-                fi
-                if [[ "x${{ inputs.debug }}" == "xtrue" ]]; then
-                  cmd+=(--debug)
-                fi
-                cmd+=(--paths "${invalidation_paths[@]}")
+              CMD_OUTPUT=$("${cmd[@]}")
 
-                echo "DEBUG ---  ${cmd[@]}"
-                echo "" >> $GITHUB_STEP_SUMMARY
-                echo "\`${cmd[@]}\`" >> $GITHUB_STEP_SUMMARY
-                echo "" >> $GITHUB_STEP_SUMMARY
+              echo "$CMD_OUTPUT"
 
-                CMD_OUTPUT=$("${cmd[@]}")
+              echo "<details>" >> $GITHUB_STEP_SUMMARY
+              echo "<summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
+              echo "<p>" >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo '' >> $GITHUB_STEP_SUMMARY
+              echo "</p>" >> $GITHUB_STEP_SUMMARY
+              echo "</details>" >> $GITHUB_STEP_SUMMARY
 
-                echo "$CMD_OUTPUT"
-
-                echo "<details>" >> $GITHUB_STEP_SUMMARY
-                echo "<summary>Details</summary>" >> $GITHUB_STEP_SUMMARY
-                echo "<p>" >> $GITHUB_STEP_SUMMARY
-                echo '' >> $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-                echo "$CMD_OUTPUT" >> $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-                echo '' >> $GITHUB_STEP_SUMMARY
-                echo "</p>" >> $GITHUB_STEP_SUMMARY
-                echo "</details>" >> $GITHUB_STEP_SUMMARY
-
-                set +f # Enable globbing
+              set +f # Enable globbing
