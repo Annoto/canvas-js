@@ -65,7 +65,10 @@ export class DiscussionTopicHandler {
             `AnnotoCanvas: Course number: ${this.courseNumber}, Topic number: ${this.topicNumber}, Label: ${this.label}`
         );
 
-        return document.getElementById('discussion_subentries');
+        return (
+            document.getElementById('discussion_subentries') ||
+            document.querySelector('#content [data-testid=discussion-root-entry-container]')
+        );
     }
 
     private mutationsHandle(): void {
