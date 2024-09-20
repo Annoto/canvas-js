@@ -44,6 +44,10 @@ export class DiscussionTopicHandler {
             [this.courseNumber, this.topicNumber] = [matches[1], matches[2]];
         }
 
+        if (!this.courseNumber || !this.topicNumber) {
+            return null;
+        }
+
         this.label =
             document.querySelector<HTMLElement>(
                 '#discussion_topic .discussion-header-content .discussion-title'
@@ -52,7 +56,8 @@ export class DiscussionTopicHandler {
                 (el) => el.href?.match(regex)
             )[0]?.innerText;
 
-        if (!this.courseNumber || !this.topicNumber || !this.label) {
+        if (!this.label) {
+            this.log.warn('AnnotoCanvas: Label not found');
             return null;
         }
 
