@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/Annoto/canvas-js/compare/v1.0.1...v1.0.2) (2024-09-20)
+
+
+### Bug Fixes
+
+* discussions container detect for custom themes ([#7](https://github.com/Annoto/canvas-js/issues/7)) ([fc50833](https://github.com/Annoto/canvas-js/commit/fc50833fadeacc63d5bb616019b54492dd620a5f))
+
 ## [1.0.1](https://github.com/Annoto/canvas-js/compare/v1.0.0...v1.0.1) (2024-09-20)
 
 
