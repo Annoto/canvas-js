@@ -33,6 +33,7 @@ export class SpeedGraderHandler {
             childList: true,
             subtree: false,
         });
+        this.handleIframeHolderMutations();
     }
 
     private reset(): void {

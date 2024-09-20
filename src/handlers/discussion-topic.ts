@@ -44,11 +44,20 @@ export class DiscussionTopicHandler {
             [this.courseNumber, this.topicNumber] = [matches[1], matches[2]];
         }
 
-        this.label = document.querySelector<HTMLElement>(
-            '#discussion_topic .discussion-header-content .discussion-title'
-        )?.innerText;
+        if (!this.courseNumber || !this.topicNumber) {
+            return null;
+        }
 
-        if (!this.courseNumber || !this.topicNumber || !this.label) {
+        this.label =
+            document.querySelector<HTMLElement>(
+                '#discussion_topic .discussion-header-content .discussion-title'
+            )?.innerText ||
+            Array.from<HTMLLinkElement>(document.querySelectorAll('#breadcrumbs li a')).filter(
+                (el) => el.href?.match(regex)
+            )[0]?.innerText;
+
+        if (!this.label) {
+            this.log.warn('AnnotoCanvas: Label not found');
             return null;
         }
 
@@ -82,7 +91,9 @@ export class DiscussionTopicHandler {
         const subscriptionId = `discussion_topic_thread_init_${key}`;
         const { courseNumber, topicNumber } = this;
 
-        this.log.info(`AnnotoCanvas: Discussion handling tool ${key} for course ${courseNumber}, topic ${topicNumber}`);
+        this.log.info(
+            `AnnotoCanvas: Discussion handling tool ${key} for course ${courseNumber}, topic ${topicNumber}`
+        );
 
         annotoIframeHandle({
             iframe,
