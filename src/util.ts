@@ -170,3 +170,52 @@ export const formatTagValue = ({
     courseNumber: string;
     topicNumber: string;
 }): string => `canvas_discussion_${courseNumber}_${topicNumber}`;
+
+export const inIframe = (): boolean => {
+    try {
+        return window.self !== window.top;
+    } catch (e) {
+        return true;
+    }
+};
+
+export const onIframeURLChange = (
+    iframe: HTMLIFrameElement,
+    callback: (href: string) => void
+): IDisposable => {
+    let lastDispatched = iframe.contentWindow?.location.href || 'about:blank';
+    let unloadHandlerTimeout: ReturnType<typeof setTimeout>;
+    const dispatchChange = (): void => {
+        const newHref = iframe.contentWindow?.location.href || 'about:blank';
+
+        if (newHref !== lastDispatched) {
+            callback(newHref as string);
+            lastDispatched = newHref;
+        }
+    };
+
+    const unloadHandler = (): void => {
+        unloadHandlerTimeout = setTimeout(dispatchChange, 0);
+    };
+
+    const attachUnload = (): void => {
+        iframe.contentWindow?.removeEventListener('unload', unloadHandler);
+        iframe.contentWindow?.addEventListener('unload', unloadHandler);
+    };
+
+    const loadHandler = (): void => {
+        attachUnload();
+        dispatchChange();
+    };
+
+    iframe.addEventListener('load', loadHandler);
+
+    attachUnload();
+    return {
+        dispose: () => {
+            iframe.contentWindow?.removeEventListener('unload', unloadHandler);
+            iframe.removeEventListener('load', loadHandler);
+            clearTimeout(unloadHandlerTimeout);
+        },
+    };
+};

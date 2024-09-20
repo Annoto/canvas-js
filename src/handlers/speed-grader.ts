@@ -4,17 +4,18 @@ import {
     annotoIframeHandle,
     formatTagValue,
     getCanvasResourceUUID,
+    onIframeURLChange,
     isAnnotoRelatedIframe,
 } from '../util';
 
 export class SpeedGraderHandler {
     private holderObserver: MutationObserver | undefined;
-    private managedIframes = new Set<string>();
     private activeStudentId: string | undefined;
     private activeIframeHolder: HTMLIFrameElement | undefined;
-    private activeObserver: MutationObserver | undefined;
-    private disposables: IDisposable[] = [];
     private activeIframeContentLoadInterval: ReturnType<typeof setInterval> | undefined;
+    private activeIframeDisposables: IDisposable[] = [];
+    private managedIframes = new Set<string>();
+    private managedIframesDisposables: IDisposable[] = [];
 
     constructor(private log: ILog) {
         /* empty */
@@ -43,13 +44,18 @@ export class SpeedGraderHandler {
         );
         this.activeStudentId = undefined;
         this.activeIframeHolder = undefined;
-        this.managedIframes.clear();
         if (this.activeIframeContentLoadInterval) {
             clearInterval(this.activeIframeContentLoadInterval);
         }
-        this.disposables.forEach((d) => d.dispose());
-        this.disposables = [];
-        this.activeObserver?.disconnect();
+        this.activeIframeDisposables.forEach((d) => d.dispose());
+        this.activeIframeDisposables = [];
+        this.resetManagedIframes();
+    }
+
+    private resetManagedIframes(): void {
+        this.managedIframesDisposables.forEach((d) => d.dispose());
+        this.managedIframesDisposables = [];
+        this.managedIframes.clear();
     }
 
     private handleIframeHolderMutations(): void {
@@ -81,6 +87,13 @@ export class SpeedGraderHandler {
         this.activeIframeHolder = iframe; // reset() clears this so reset
         this.activeStudentId = studentId;
         this.log.info('AnnotoCanvas: SpeedGrader handling student ID: ', studentId);
+
+        this.activeIframeDisposables.push(
+            onIframeURLChange(iframe, (href) => {
+                this.log.log('AnnotoCanvas: SpeedGrader iframe URL changed', href);
+                this.resetManagedIframes();
+            })
+        );
 
         this.activeIframeContentLoadInterval = setInterval(() => {
             const params = this.getTopicParams();
@@ -128,9 +141,11 @@ export class SpeedGraderHandler {
         topicNumber: string;
     }): void {
         const subscriptionId = `speed_grader_thread_init_${key}`;
-        this.log.info(`AnnotoCanvas: SpeedGrader handling tool ${key} for course ${courseNumber}, topic ${topicNumber}`);
+        this.log.info(
+            `AnnotoCanvas: SpeedGrader handling tool ${key} for course ${courseNumber}, topic ${topicNumber}`
+        );
 
-        this.disposables.push(
+        this.managedIframesDisposables.push(
             annotoIframeHandle({
                 iframe,
                 key,
@@ -177,15 +192,16 @@ export class SpeedGraderHandler {
     }
 
     private getTopicParams(): { courseNumber: string; topicNumber: string } | undefined {
-        const discussionLinkElement = this.activeIframeHolder?.contentDocument?.getElementById(
-            'discussion_view_link'
-        ) as HTMLAnchorElement;
-        if (!discussionLinkElement) {
+        const iframe = this.activeIframeHolder;
+        if (!iframe?.contentDocument) {
             return undefined;
         }
-        const discussionTopicLink = discussionLinkElement.href;
+        const discussionLinkElement = iframe.contentDocument.getElementById(
+            'discussion_view_link'
+        ) as HTMLAnchorElement;
+        const url = discussionLinkElement?.href || iframe.contentDocument.location.href;
         const regex = /courses\/(\d+)\/discussion_topics\/(\d+)/;
-        const matches = discussionTopicLink.match(regex);
+        const matches = url?.match(regex);
         if (!matches) {
             this.log.log('AnnotoCanvas: Discussion topic details not found');
             return undefined;
@@ -193,6 +209,9 @@ export class SpeedGraderHandler {
 
         const courseNumber = matches[1];
         const topicNumber = matches[2];
+        if (!courseNumber || !topicNumber) {
+            return undefined;
+        }
         return { courseNumber, topicNumber };
     }
 }
