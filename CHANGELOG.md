@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Annoto/canvas-js/compare/v1.0.0...v1.0.1) (2024-09-20)
+
+
+### Bug Fixes
+
+* discussion topic and speed grader detections ([#5](https://github.com/Annoto/canvas-js/issues/5)) ([9f2617d](https://github.com/Annoto/canvas-js/commit/9f2617daef8af67b8113a498700bb5b14e85041e))
+
 ## [1.0.0](https://github.com/Annoto/canvas-js/compare/v1.0.0...v1.0.0) (2024-09-19)
 
 
