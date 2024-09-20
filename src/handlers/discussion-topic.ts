@@ -2,6 +2,7 @@ import { IFrameMessage, IFrameMessageWidgetSetCmd } from '@annoto/widget-api';
 import { ILog } from '../interfaces';
 import {
     annotoIframeHandle,
+    delay,
     formatTagValue,
     getCanvasResourceUUID,
     isAnnotoRelatedIframe,
@@ -18,8 +19,8 @@ export class DiscussionTopicHandler {
         /* empty */
     }
 
-    init(): void {
-        const discussionHolder = this.detect();
+    async init(): Promise<void> {
+        const discussionHolder = await this.detect();
         if (!discussionHolder) {
             this.log.log('AnnotoCanvas: Discussion topic not found');
             return;
@@ -35,7 +36,7 @@ export class DiscussionTopicHandler {
         this.mutationsHandle();
     }
 
-    private detect(): HTMLElement | null {
+    private async detect(): Promise<HTMLElement | null> {
         const currentLocation = window.location.href;
         const regex = /courses\/(\d+)\/discussion_topics\/(\d+)/;
         const matches = currentLocation.match(regex);
@@ -65,10 +66,18 @@ export class DiscussionTopicHandler {
             `AnnotoCanvas: Course number: ${this.courseNumber}, Topic number: ${this.topicNumber}, Label: ${this.label}`
         );
 
-        return (
+        const getDiscussionHolder = (): HTMLElement | null =>
             document.getElementById('discussion_subentries') ||
-            document.querySelector('#content [data-testid=discussion-root-entry-container]')
-        );
+            document.querySelector('#content [data-testid=discussion-root-entry-container]');
+
+        let holderEl = getDiscussionHolder();
+        let retries = 0;
+        while (!holderEl && retries < 50) {
+            await delay(200); // eslint-disable-line no-await-in-loop
+            holderEl = getDiscussionHolder();
+            retries += 1;
+        }
+        return holderEl;
     }
 
     private mutationsHandle(): void {
@@ -122,6 +131,21 @@ export class DiscussionTopicHandler {
                     data: tagMsg,
                 };
                 iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+
+                const groupQueryData: IFrameMessageWidgetSetCmd<'group_comments_query'> = {
+                    action: 'group_comments_query',
+                    widget_index: ev.widget_index,
+                    data: {
+                        threads_tag_value: formatTagValue({ courseNumber, topicNumber }),
+                    },
+                };
+                const groupQueryMsg: IFrameMessage<'widget_set_cmd'> = {
+                    aud: 'annoto_widget',
+                    id: `set_group_comment_query_${key}`,
+                    action: 'widget_set_cmd',
+                    data: groupQueryData,
+                };
+                iframe.contentWindow?.postMessage(JSON.stringify(groupQueryMsg), '*');
             },
             onEvent: () => {
                 /* empty */
