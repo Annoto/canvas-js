@@ -131,6 +131,21 @@ export class DiscussionTopicHandler {
                     data: tagMsg,
                 };
                 iframe.contentWindow?.postMessage(JSON.stringify(msg), '*');
+
+                const groupQueryData: IFrameMessageWidgetSetCmd<'group_comments_query'> = {
+                    action: 'group_comments_query',
+                    widget_index: ev.widget_index,
+                    data: {
+                        threads_tag_value: formatTagValue({ courseNumber, topicNumber }),
+                    },
+                };
+                const groupQueryMsg: IFrameMessage<'widget_set_cmd'> = {
+                    aud: 'annoto_widget',
+                    id: `set_group_comment_query_${key}`,
+                    action: 'widget_set_cmd',
+                    data: groupQueryData,
+                };
+                iframe.contentWindow?.postMessage(JSON.stringify(groupQueryMsg), '*');
             },
             onEvent: () => {
                 /* empty */
